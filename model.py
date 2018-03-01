@@ -78,7 +78,7 @@ def identity_block(input_tensor, kernel_size, filters, stage, block,
     """The identity_block is the block that has no conv layer at shortcut
     # Arguments
         input_tensor: input tensor
-        kernel_size: defualt 3, the kernel size of middle conv layer at main path
+        kernel_size: default 3, the kernel size of middle conv layer at main path
         filters: list of integers, the nb_filters of 3 conv layer at main path
         stage: integer, current stage label, used for generating layer names
         block: 'a','b'..., current block label, used for generating layer names
@@ -111,7 +111,7 @@ def conv_block(input_tensor, kernel_size, filters, stage, block,
     """conv_block is the block that has a conv layer at shortcut
     # Arguments
         input_tensor: input tensor
-        kernel_size: defualt 3, the kernel size of middle conv layer at main path
+        kernel_size: default 3, the kernel size of middle conv layer at main path
         filters: list of integers, the nb_filters of 3 conv layer at main path
         stage: integer, current stage label, used for generating layer names
         block: 'a','b'..., current block label, used for generating layer names
@@ -249,7 +249,7 @@ class ProposalLayer(KE.Layer):
         self.nms_threshold = nms_threshold
         self.anchors = anchors.astype(np.float32)
 
-    def call(self, inputs):
+    def call(self, inputs, **kwargs):
         # Box Scores. Use the foreground class confidence. [Batch, num_rois, 1]
         scores = inputs[0][:, :, 1]
         # Box deltas [batch, num_rois, 4]
@@ -261,8 +261,7 @@ class ProposalLayer(KE.Layer):
         # Improve performance by trimming to top anchors by score
         # and doing the rest on the smaller subset.
         pre_nms_limit = min(6000, self.anchors.shape[0])
-        ix = tf.nn.top_k(scores, pre_nms_limit, sorted=True,
-                         name="top_anchors").indices
+        ix = tf.nn.top_k(scores, pre_nms_limit, sorted=True, name="top_anchors").indices
         scores = utils.batch_slice([scores, ix], lambda x, y: tf.gather(x, y),
                                    self.config.IMAGES_PER_GPU)
         deltas = utils.batch_slice([deltas, ix], lambda x, y: tf.gather(x, y),
@@ -308,7 +307,7 @@ class ProposalLayer(KE.Layer):
         return proposals
 
     def compute_output_shape(self, input_shape):
-        return (None, self.proposal_count, 4)
+        return None, self.proposal_count, 4
 
 
 ############################################################
@@ -316,7 +315,7 @@ class ProposalLayer(KE.Layer):
 ############################################################
 
 def log2_graph(x):
-    """Implementatin of Log2. TF doesn't have a native implemenation."""
+    """Implementation of Log2. TF doesn't have a native implementation."""
     return tf.log(x) / tf.log(2.0)
 
 
@@ -345,7 +344,7 @@ class PyramidROIAlign(KE.Layer):
         self.pool_shape = tuple(pool_shape)
         self.image_shape = tuple(image_shape)
 
-    def call(self, inputs):
+    def call(self, inputs, **kwargs):
         # Crop boxes [batch, num_boxes, (y1, x1, y2, x2)] in normalized coords
         boxes = inputs[0]
 
@@ -374,13 +373,13 @@ class PyramidROIAlign(KE.Layer):
             ix = tf.where(tf.equal(roi_level, level))
             level_boxes = tf.gather_nd(boxes, ix)
 
-            # Box indicies for crop_and_resize.
+            # Box indices for crop_and_resize.
             box_indices = tf.cast(ix[:, 0], tf.int32)
 
             # Keep track of which box is mapped to which level
             box_to_level.append(ix)
 
-            # Stop gradient propogation to ROI proposals
+            # Stop gradient propagation to ROI proposals
             level_boxes = tf.stop_gradient(level_boxes)
             box_indices = tf.stop_gradient(box_indices)
 
@@ -432,9 +431,9 @@ def overlaps_graph(boxes1, boxes2):
     """Computes IoU overlaps between two sets of boxes.
     boxes1, boxes2: [N, (y1, x1, y2, x2)].
     """
-    # 1. Tile boxes2 and repeate boxes1. This allows us to compare
+    # 1. Tile boxes2 and repeat boxes1. This allows us to compare
     # every boxes1 against every boxes2 without loops.
-    # TF doesn't have an equivalent to np.repeate() so simulate it
+    # TF doesn't have an equivalent to np.repeat() so simulate it
     # using tf.tile() and tf.reshape.
     b1 = tf.reshape(tf.tile(tf.expand_dims(boxes1, 1),
                             [1, 1, tf.shape(boxes2)[0]]), [-1, 4])
@@ -699,7 +698,7 @@ def refine_detections_graph(rois, probs, deltas, window, config):
     refined_rois *= tf.constant([height, width, height, width], dtype=tf.float32)
     # Clip boxes to image window
     refined_rois = clip_boxes_graph(refined_rois, window)
-    # Round and cast to int since we're deadling with pixels now
+    # Round and cast to int since we're dealing with pixels now
     refined_rois = tf.to_int32(tf.rint(refined_rois))
 
     # TODO: Filter out boxes with zero area
@@ -784,7 +783,7 @@ class DetectionLayer(KE.Layer):
         super(DetectionLayer, self).__init__(**kwargs)
         self.config = config
 
-    def call(self, inputs):
+    def call(self, inputs, **kwargs):
         rois = inputs[0]
         mrcnn_class = inputs[1]
         mrcnn_bbox = inputs[2]
@@ -823,7 +822,7 @@ def rpn_graph(feature_map, anchors_per_location, anchor_stride):
         rpn_bbox: [batch, H, W, (dy, dx, log(dh), log(dw))] Deltas to be
                   applied to anchors.
     """
-    # TODO: check if stride of 2 causes alignment issues if the featuremap
+    # TODO: check if stride of 2 causes alignment issues if the feature map
     #       is not even.
     # Shared convolutional base of the RPN
     shared = KL.Conv2D(512, (3, 3), padding='same', activation='relu',
@@ -939,7 +938,7 @@ def build_fpn_mask_graph(rois, feature_maps,
 
     rois: [batch, num_rois, (y1, x1, y2, x2)] Proposal boxes in normalized
           coordinates.
-    feature_maps: List of feature maps from diffent layers of the pyramid,
+    feature_maps: List of feature maps from different layers of the pyramid,
                   [P2, P3, P4, P5]. Each has a different resolution.
     image_shape: [height, width, depth]
     pool_size: The width of the square feature map generated from ROI Pooling.
@@ -953,34 +952,24 @@ def build_fpn_mask_graph(rois, feature_maps,
                         name="roi_align_mask")([rois] + feature_maps)
 
     # Conv layers
-    x = KL.TimeDistributed(KL.Conv2D(256, (3, 3), padding="same"),
-                           name="mrcnn_mask_conv1")(x)
-    x = KL.TimeDistributed(BatchNorm(axis=3),
-                           name='mrcnn_mask_bn1')(x)
+    x = KL.TimeDistributed(KL.Conv2D(256, (3, 3), padding="same"), name="mrcnn_mask_conv1")(x)
+    x = KL.TimeDistributed(BatchNorm(axis=3), name='mrcnn_mask_bn1')(x)
     x = KL.Activation('relu')(x)
 
-    x = KL.TimeDistributed(KL.Conv2D(256, (3, 3), padding="same"),
-                           name="mrcnn_mask_conv2")(x)
-    x = KL.TimeDistributed(BatchNorm(axis=3),
-                           name='mrcnn_mask_bn2')(x)
+    x = KL.TimeDistributed(KL.Conv2D(256, (3, 3), padding="same"), name="mrcnn_mask_conv2")(x)
+    x = KL.TimeDistributed(BatchNorm(axis=3), name='mrcnn_mask_bn2')(x)
     x = KL.Activation('relu')(x)
 
-    x = KL.TimeDistributed(KL.Conv2D(256, (3, 3), padding="same"),
-                           name="mrcnn_mask_conv3")(x)
-    x = KL.TimeDistributed(BatchNorm(axis=3),
-                           name='mrcnn_mask_bn3')(x)
+    x = KL.TimeDistributed(KL.Conv2D(256, (3, 3), padding="same"), name="mrcnn_mask_conv3")(x)
+    x = KL.TimeDistributed(BatchNorm(axis=3), name='mrcnn_mask_bn3')(x)
     x = KL.Activation('relu')(x)
 
-    x = KL.TimeDistributed(KL.Conv2D(256, (3, 3), padding="same"),
-                           name="mrcnn_mask_conv4")(x)
-    x = KL.TimeDistributed(BatchNorm(axis=3),
-                           name='mrcnn_mask_bn4')(x)
+    x = KL.TimeDistributed(KL.Conv2D(256, (3, 3), padding="same"), name="mrcnn_mask_conv4")(x)
+    x = KL.TimeDistributed(BatchNorm(axis=3), name='mrcnn_mask_bn4')(x)
     x = KL.Activation('relu')(x)
 
-    x = KL.TimeDistributed(KL.Conv2DTranspose(256, (2, 2), strides=2, activation="relu"),
-                           name="mrcnn_mask_deconv")(x)
-    x = KL.TimeDistributed(KL.Conv2D(num_classes, (1, 1), strides=1, activation="sigmoid"),
-                           name="mrcnn_mask")(x)
+    x = KL.TimeDistributed(KL.Conv2DTranspose(256, (2, 2), strides=2, activation="relu"), name="mrcnn_mask_deconv")(x)
+    x = KL.TimeDistributed(KL.Conv2D(num_classes, (1, 1), strides=1, activation="sigmoid"), name="mrcnn_mask")(x)
     return x
 
 
@@ -990,7 +979,7 @@ def build_fpn_mask_graph(rois, feature_maps,
 
 def smooth_l1_loss(y_true, y_pred):
     """Implements Smooth-L1 loss.
-    y_true and y_pred are typicallly: [N, 4], but could be any shape.
+    y_true and y_pred are typically: [N, 4], but could be any shape.
     """
     diff = K.abs(y_true - y_pred)
     less_than_one = K.cast(K.less(diff, 1.0), "float32")
@@ -1015,7 +1004,7 @@ def rpn_class_loss_graph(rpn_match, rpn_class_logits):
     # Pick rows that contribute to the loss and filter out the rest.
     rpn_class_logits = tf.gather_nd(rpn_class_logits, indices)
     anchor_class = tf.gather_nd(anchor_class, indices)
-    # Crossentropy loss
+    # Cross entropy loss
     loss = K.sparse_categorical_crossentropy(target=anchor_class,
                                              output=rpn_class_logits,
                                              from_logits=True)
@@ -1046,11 +1035,7 @@ def rpn_bbox_loss_graph(config, target_bbox, rpn_match, rpn_bbox):
     target_bbox = batch_pack_graph(target_bbox, batch_counts,
                                    config.IMAGES_PER_GPU)
 
-    # TODO: use smooth_l1_loss() rather than reimplementing here
-    #       to reduce code duplication
-    diff = K.abs(target_bbox - rpn_bbox)
-    less_than_one = K.cast(K.less(diff, 1.0), "float32")
-    loss = (less_than_one * 0.5 * diff**2) + (1 - less_than_one) * (diff - 0.5)
+    loss = smooth_l1_loss(target_bbox, rpn_bbox)
 
     loss = K.switch(tf.size(loss) > 0, K.mean(loss), tf.constant(0.0))
     return loss
